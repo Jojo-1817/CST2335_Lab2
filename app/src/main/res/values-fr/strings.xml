@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AndroidLabs</string>
+
+    <string name="toast_message">L\'étiquette a été mise à jour.</string>
+    <string name="snackbar_message">La case est maintenant</string>
+    <string name="on">activée</string>
+    <string name="off">désactivée</string>
+    <string name="undo">Annuler</string>
+</resources>
