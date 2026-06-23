@@ -1,9 +1,8 @@
 <resources>
-    <string name="app_name">AndroidLabs</string>
-
-    <string name="toast_message">Label has been updated.</string>
-    <string name="snackbar_message">The checkbox is now</string>
-    <string name="on">on</string>
-    <string name="off">off</string>
-    <string name="undo">Undo</string>
+    <string name="app_name">CST2335 Lab 3</string>
+    <string name="enter_your_name">Enter your name</string>
+    <string name="next">Next</string>
+    <string name="welcome">Welcome!</string>
+    <string name="thank_you">Thank You</string>
+    <string name="dont_call_me_that">Do not call me that</string>
 </resources>

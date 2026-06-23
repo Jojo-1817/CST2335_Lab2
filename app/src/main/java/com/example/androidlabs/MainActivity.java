@@ -1,55 +1,71 @@
 package com.example.androidlabs;
 
+import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Button;
-import android.widget.CheckBox;
-import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.material.snackbar.Snackbar;
-
 public class MainActivity extends AppCompatActivity {
 
-    private TextView textLabel;
-    private EditText editText;
-    private Button buttonPress;
-    private CheckBox checkBox;
+    private EditText editName;
+    private Button buttonNext;
+
+    private SharedPreferences sharedPreferences;
+
+    private static final String PREFS_NAME = "MyPrefs";
+    private static final String NAME_KEY = "name";
+    private static final int NAME_ACTIVITY_REQUEST_CODE = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main_constraint);
+        setContentView(R.layout.activity_main);
 
-        textLabel = findViewById(R.id.textLabel);
-        editText = findViewById(R.id.editText);
-        buttonPress = findViewById(R.id.buttonPress);
-        checkBox = findViewById(R.id.checkBox);
+        editName = findViewById(R.id.editName);
+        buttonNext = findViewById(R.id.buttonNext);
 
-        buttonPress.setOnClickListener(v -> {
-            textLabel.setText(editText.getText().toString());
+        sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-            Toast.makeText(
-                    MainActivity.this,
-                    getResources().getString(R.string.toast_message),
-                    Toast.LENGTH_SHORT
-            ).show();
+        String savedName = sharedPreferences.getString(NAME_KEY, "");
+
+        if (!savedName.isEmpty()) {
+            editName.setText(savedName);
+        }
+
+        buttonNext.setOnClickListener(v -> {
+            String name = editName.getText().toString();
+
+            Intent intent = new Intent(MainActivity.this, NameActivity.class);
+            intent.putExtra(NAME_KEY, name);
+
+            startActivityForResult(intent, NAME_ACTIVITY_REQUEST_CODE);
         });
+    }
 
-        checkBox.setOnCheckedChangeListener((CompoundButton cb, boolean b) -> {
-            String status = b ? getString(R.string.on) : getString(R.string.off);
+    @Override
+    protected void onPause() {
+        super.onPause();
 
-            Snackbar.make(
-                    cb,
-                    getString(R.string.snackbar_message) + " " + status,
-                    Snackbar.LENGTH_LONG
-            ).setAction(
-                    getString(R.string.undo),
-                    click -> cb.setChecked(!b)
-            ).show();
-        });
+        String currentName = editName.getText().toString();
+
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putString(NAME_KEY, currentName);
+        editor.apply();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == NAME_ACTIVITY_REQUEST_CODE) {
+            if (resultCode == 0) {
+                // User wants to change their name.
+            } else if (resultCode == 1) {
+                finish();
+            }
+        }
     }
 }
