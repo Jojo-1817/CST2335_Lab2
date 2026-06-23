@@ -13,9 +13,6 @@
         android:theme="@style/Theme.MyApplication">
 
         <activity
-            android:name=".NameActivity" />
-
-        <activity
             android:name=".MainActivity"
             android:exported="true">
 

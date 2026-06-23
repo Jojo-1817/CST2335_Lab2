@@ -1,8 +1,10 @@
 <resources>
-    <string name="app_name">CST2335 Lab 3</string>
-    <string name="enter_your_name">Enter your name</string>
-    <string name="next">Next</string>
-    <string name="welcome">Welcome!</string>
-    <string name="thank_you">Thank You</string>
-    <string name="dont_call_me_that">Do not call me that</string>
+    <string name="app_name">CST2335 Lab 4</string>
+    <string name="type_here">Type Here</string>
+    <string name="urgent">Urgent</string>
+    <string name="add">Add</string>
+    <string name="delete_title">Do you want to delete this?</string>
+    <string name="selected_row">The selected row is: </string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
 </resources>

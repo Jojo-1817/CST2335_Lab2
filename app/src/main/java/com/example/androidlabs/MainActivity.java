@@ -1,71 +1,132 @@
 package com.example.androidlabs;
 
-import android.content.Intent;
-import android.content.SharedPreferences;
+import android.app.AlertDialog;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListView;
+import android.widget.Switch;
+import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.ArrayList;
+
 public class MainActivity extends AppCompatActivity {
 
-    private EditText editName;
-    private Button buttonNext;
+    private ListView todoListView;
+    private EditText todoEditText;
+    private Switch urgentSwitch;
+    private Button addButton;
 
-    private SharedPreferences sharedPreferences;
-
-    private static final String PREFS_NAME = "MyPrefs";
-    private static final String NAME_KEY = "name";
-    private static final int NAME_ACTIVITY_REQUEST_CODE = 100;
+    private ArrayList<TodoItem> todoItems;
+    private TodoAdapter todoAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        editName = findViewById(R.id.editName);
-        buttonNext = findViewById(R.id.buttonNext);
+        todoListView = findViewById(R.id.todoListView);
+        todoEditText = findViewById(R.id.todoEditText);
+        urgentSwitch = findViewById(R.id.urgentSwitch);
+        addButton = findViewById(R.id.addButton);
 
-        sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        todoItems = new ArrayList<>();
+        todoAdapter = new TodoAdapter();
+        todoListView.setAdapter(todoAdapter);
 
-        String savedName = sharedPreferences.getString(NAME_KEY, "");
+        addButton.setOnClickListener(v -> {
+            String text = todoEditText.getText().toString();
+            boolean urgent = urgentSwitch.isChecked();
 
-        if (!savedName.isEmpty()) {
-            editName.setText(savedName);
-        }
+            if (!text.isEmpty()) {
+                TodoItem newItem = new TodoItem(text, urgent);
+                todoItems.add(newItem);
 
-        buttonNext.setOnClickListener(v -> {
-            String name = editName.getText().toString();
+                todoEditText.setText("");
+                urgentSwitch.setChecked(false);
 
-            Intent intent = new Intent(MainActivity.this, NameActivity.class);
-            intent.putExtra(NAME_KEY, name);
+                todoAdapter.notifyDataSetChanged();
+            }
+        });
 
-            startActivityForResult(intent, NAME_ACTIVITY_REQUEST_CODE);
+        todoListView.setOnItemLongClickListener((parent, view, position, id) -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+
+            builder.setTitle(R.string.delete_title);
+            builder.setMessage(getString(R.string.selected_row) + position);
+
+            builder.setPositiveButton(R.string.yes, (dialog, which) -> {
+                todoItems.remove(position);
+                todoAdapter.notifyDataSetChanged();
+            });
+
+            builder.setNegativeButton(R.string.no, null);
+
+            builder.create().show();
+
+            return true;
         });
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
+    private static class TodoItem {
+        private String text;
+        private boolean urgent;
 
-        String currentName = editName.getText().toString();
+        public TodoItem(String text, boolean urgent) {
+            this.text = text;
+            this.urgent = urgent;
+        }
 
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString(NAME_KEY, currentName);
-        editor.apply();
+        public String getText() {
+            return text;
+        }
+
+        public boolean isUrgent() {
+            return urgent;
+        }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
+    private class TodoAdapter extends BaseAdapter {
 
-        if (requestCode == NAME_ACTIVITY_REQUEST_CODE) {
-            if (resultCode == 0) {
-                // User wants to change their name.
-            } else if (resultCode == 1) {
-                finish();
+        @Override
+        public int getCount() {
+            return todoItems.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return todoItems.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            View view = getLayoutInflater().inflate(R.layout.todo_row, parent, false);
+
+            TextView todoTextView = view.findViewById(R.id.todoTextView);
+            TodoItem item = todoItems.get(position);
+
+            todoTextView.setText(item.getText());
+
+            if (item.isUrgent()) {
+                view.setBackgroundColor(Color.RED);
+                todoTextView.setTextColor(Color.WHITE);
+            } else {
+                view.setBackgroundColor(Color.WHITE);
+                todoTextView.setTextColor(Color.BLACK);
             }
+
+            return view;
         }
     }
 }
