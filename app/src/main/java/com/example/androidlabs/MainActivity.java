@@ -1,8 +1,12 @@
 package com.example.androidlabs;
 
 import android.app.AlertDialog;
+import android.content.ContentValues;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
@@ -25,6 +29,8 @@ public class MainActivity extends AppCompatActivity {
 
     private ArrayList<TodoItem> todoItems;
     private TodoAdapter todoAdapter;
+    private TodoDatabaseHelper dbHelper;
+    private SQLiteDatabase db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,7 +42,12 @@ public class MainActivity extends AppCompatActivity {
         urgentSwitch = findViewById(R.id.urgentSwitch);
         addButton = findViewById(R.id.addButton);
 
+        dbHelper = new TodoDatabaseHelper(this);
+        db = dbHelper.getWritableDatabase();
+
         todoItems = new ArrayList<>();
+        loadTodosFromDatabase();
+
         todoAdapter = new TodoAdapter();
         todoListView.setAdapter(todoAdapter);
 
@@ -45,7 +56,13 @@ public class MainActivity extends AppCompatActivity {
             boolean urgent = urgentSwitch.isChecked();
 
             if (!text.isEmpty()) {
-                TodoItem newItem = new TodoItem(text, urgent);
+                ContentValues values = new ContentValues();
+                values.put(TodoDatabaseHelper.COL_TEXT, text);
+                values.put(TodoDatabaseHelper.COL_URGENT, urgent ? 1 : 0);
+
+                long newId = db.insert(TodoDatabaseHelper.TABLE_NAME, null, values);
+
+                TodoItem newItem = new TodoItem(newId, text, urgent);
                 todoItems.add(newItem);
 
                 todoEditText.setText("");
@@ -62,25 +79,96 @@ public class MainActivity extends AppCompatActivity {
             builder.setMessage(getString(R.string.selected_row) + position);
 
             builder.setPositiveButton(R.string.yes, (dialog, which) -> {
+                TodoItem itemToDelete = todoItems.get(position);
+
+                db.delete(
+                        TodoDatabaseHelper.TABLE_NAME,
+                        TodoDatabaseHelper.COL_ID + " = ?",
+                        new String[]{String.valueOf(itemToDelete.getId())}
+                );
+
                 todoItems.remove(position);
                 todoAdapter.notifyDataSetChanged();
             });
 
             builder.setNegativeButton(R.string.no, null);
-
             builder.create().show();
 
             return true;
         });
     }
 
+    private void loadTodosFromDatabase() {
+        Cursor cursor = db.query(
+                TodoDatabaseHelper.TABLE_NAME,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        printCursor(cursor);
+
+        while (cursor.moveToNext()) {
+            long id = cursor.getLong(cursor.getColumnIndexOrThrow(TodoDatabaseHelper.COL_ID));
+            String text = cursor.getString(cursor.getColumnIndexOrThrow(TodoDatabaseHelper.COL_TEXT));
+            int urgentInt = cursor.getInt(cursor.getColumnIndexOrThrow(TodoDatabaseHelper.COL_URGENT));
+
+            boolean urgent = urgentInt == 1;
+
+            TodoItem item = new TodoItem(id, text, urgent);
+            todoItems.add(item);
+        }
+
+        cursor.close();
+    }
+
+    private void printCursor(Cursor c) {
+        Log.d("CursorInfo", "Database Version: " + db.getVersion());
+        Log.d("CursorInfo", "Number of columns: " + c.getColumnCount());
+
+        String[] columnNames = c.getColumnNames();
+
+        for (String columnName : columnNames) {
+            Log.d("CursorInfo", "Column name: " + columnName);
+        }
+
+        Log.d("CursorInfo", "Number of results: " + c.getCount());
+
+        if (c.moveToFirst()) {
+            do {
+                StringBuilder row = new StringBuilder();
+
+                for (int i = 0; i < c.getColumnCount(); i++) {
+                    row.append(c.getColumnName(i))
+                            .append(": ")
+                            .append(c.getString(i))
+                            .append(" ");
+                }
+
+                Log.d("CursorInfo", "Row: " + row.toString());
+
+            } while (c.moveToNext());
+        }
+
+        c.moveToPosition(-1);
+    }
+
     private static class TodoItem {
+        private long id;
         private String text;
         private boolean urgent;
 
-        public TodoItem(String text, boolean urgent) {
+        public TodoItem(long id, String text, boolean urgent) {
+            this.id = id;
             this.text = text;
             this.urgent = urgent;
+        }
+
+        public long getId() {
+            return id;
         }
 
         public String getText() {
@@ -106,7 +194,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public long getItemId(int position) {
-            return position;
+            return todoItems.get(position).getId();
         }
 
         @Override
