@@ -1,220 +1,125 @@
 package com.example.androidlabs;
 
-import android.app.AlertDialog;
-import android.content.ContentValues;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.BaseAdapter;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.ListView;
-import android.widget.Switch;
-import android.widget.TextView;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import java.util.ArrayList;
+import org.json.JSONObject;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Scanner;
 
 public class MainActivity extends AppCompatActivity {
 
-    private ListView todoListView;
-    private EditText todoEditText;
-    private Switch urgentSwitch;
-    private Button addButton;
-
-    private ArrayList<TodoItem> todoItems;
-    private TodoAdapter todoAdapter;
-    private TodoDatabaseHelper dbHelper;
-    private SQLiteDatabase db;
+    ImageView catImageView;
+    ProgressBar progressBar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        todoListView = findViewById(R.id.todoListView);
-        todoEditText = findViewById(R.id.todoEditText);
-        urgentSwitch = findViewById(R.id.urgentSwitch);
-        addButton = findViewById(R.id.addButton);
+        catImageView = findViewById(R.id.catImageView);
+        progressBar = findViewById(R.id.progressBar);
 
-        dbHelper = new TodoDatabaseHelper(this);
-        db = dbHelper.getWritableDatabase();
-
-        todoItems = new ArrayList<>();
-        loadTodosFromDatabase();
-
-        todoAdapter = new TodoAdapter();
-        todoListView.setAdapter(todoAdapter);
-
-        addButton.setOnClickListener(v -> {
-            String text = todoEditText.getText().toString();
-            boolean urgent = urgentSwitch.isChecked();
-
-            if (!text.isEmpty()) {
-                ContentValues values = new ContentValues();
-                values.put(TodoDatabaseHelper.COL_TEXT, text);
-                values.put(TodoDatabaseHelper.COL_URGENT, urgent ? 1 : 0);
-
-                long newId = db.insert(TodoDatabaseHelper.TABLE_NAME, null, values);
-
-                TodoItem newItem = new TodoItem(newId, text, urgent);
-                todoItems.add(newItem);
-
-                todoEditText.setText("");
-                urgentSwitch.setChecked(false);
-
-                todoAdapter.notifyDataSetChanged();
-            }
-        });
-
-        todoListView.setOnItemLongClickListener((parent, view, position, id) -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-
-            builder.setTitle(R.string.delete_title);
-            builder.setMessage(getString(R.string.selected_row) + position);
-
-            builder.setPositiveButton(R.string.yes, (dialog, which) -> {
-                TodoItem itemToDelete = todoItems.get(position);
-
-                db.delete(
-                        TodoDatabaseHelper.TABLE_NAME,
-                        TodoDatabaseHelper.COL_ID + " = ?",
-                        new String[]{String.valueOf(itemToDelete.getId())}
-                );
-
-                todoItems.remove(position);
-                todoAdapter.notifyDataSetChanged();
-            });
-
-            builder.setNegativeButton(R.string.no, null);
-            builder.create().show();
-
-            return true;
-        });
+        new CatImages().execute();
+        android.util.Log.d("TEST", "App started successfully");
     }
 
-    private void loadTodosFromDatabase() {
-        Cursor cursor = db.query(
-                TodoDatabaseHelper.TABLE_NAME,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
+    class CatImages extends AsyncTask<String, Integer, String> {
 
-        printCursor(cursor);
+        Bitmap currentCat;
 
-        while (cursor.moveToNext()) {
-            long id = cursor.getLong(cursor.getColumnIndexOrThrow(TodoDatabaseHelper.COL_ID));
-            String text = cursor.getString(cursor.getColumnIndexOrThrow(TodoDatabaseHelper.COL_TEXT));
-            int urgentInt = cursor.getInt(cursor.getColumnIndexOrThrow(TodoDatabaseHelper.COL_URGENT));
+        @Override
+        protected String doInBackground(String... strings) {
+            while (true) {
+                try {
 
-            boolean urgent = urgentInt == 1;
+                    URL jsonUrl = new URL("https://cataas.com/cat?json=true");
+                    HttpURLConnection jsonConn = (HttpURLConnection) jsonUrl.openConnection();
+                    jsonConn.setConnectTimeout(10000);
+                    jsonConn.setReadTimeout(10000);
+                    jsonConn.setRequestProperty("Accept", "application/json");
+                    jsonConn.connect();
 
-            TodoItem item = new TodoItem(id, text, urgent);
-            todoItems.add(item);
-        }
+                    int responseCode = jsonConn.getResponseCode();
+                    if (responseCode != HttpURLConnection.HTTP_OK) {
+                        Thread.sleep(3000); // wait before retrying
+                        continue;
+                    }
 
-        cursor.close();
-    }
+                    Scanner scanner = new Scanner(jsonConn.getInputStream());
+                    StringBuilder jsonStr = new StringBuilder();
+                    while (scanner.hasNextLine()) jsonStr.append(scanner.nextLine());
+                    scanner.close();
+                    jsonConn.disconnect();
 
-    private void printCursor(Cursor c) {
-        Log.d("CursorInfo", "Database Version: " + db.getVersion());
-        Log.d("CursorInfo", "Number of columns: " + c.getColumnCount());
+                    JSONObject json = new JSONObject(jsonStr.toString());
 
-        String[] columnNames = c.getColumnNames();
 
-        for (String columnName : columnNames) {
-            Log.d("CursorInfo", "Column name: " + columnName);
-        }
+                    String id = json.has("_id") ? json.getString("_id") : json.getString("id");
+                    String imagePath = json.getString("url");
+                    String imageUrl = imagePath.startsWith("http") ? imagePath : "https://cataas.com" + imagePath;
 
-        Log.d("CursorInfo", "Number of results: " + c.getCount());
 
-        if (c.moveToFirst()) {
-            do {
-                StringBuilder row = new StringBuilder();
+                    File imageFile = new File(getFilesDir(), id + ".jpg");
 
-                for (int i = 0; i < c.getColumnCount(); i++) {
-                    row.append(c.getColumnName(i))
-                            .append(": ")
-                            .append(c.getString(i))
-                            .append(" ");
+                    if (imageFile.exists()) {
+                        currentCat = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+                    } else {
+                        URL imgUrl = new URL(imageUrl);
+                        HttpURLConnection imgConn = (HttpURLConnection) imgUrl.openConnection();
+                        imgConn.setConnectTimeout(10000);
+                        imgConn.setReadTimeout(10000);
+                        imgConn.connect();
+
+                        if (imgConn.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                            InputStream stream = imgConn.getInputStream();
+                            currentCat = BitmapFactory.decodeStream(stream);
+                            stream.close();
+                            imgConn.disconnect();
+
+                            if (currentCat != null) {
+                                FileOutputStream fos = new FileOutputStream(imageFile);
+                                currentCat.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+                                fos.flush();
+                                fos.close();
+                            }
+                        }
+                    }
+
+
+                    publishProgress(0);
+                    for (int i = 1; i <= 100; i++) {
+                        publishProgress(i);
+                        Thread.sleep(30);
+                    }
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    try { Thread.sleep(3000); } catch (Exception ignored) {} // wait before retrying on error
                 }
-
-                Log.d("CursorInfo", "Row: " + row.toString());
-
-            } while (c.moveToNext());
-        }
-
-        c.moveToPosition(-1);
-    }
-
-    private static class TodoItem {
-        private long id;
-        private String text;
-        private boolean urgent;
-
-        public TodoItem(long id, String text, boolean urgent) {
-            this.id = id;
-            this.text = text;
-            this.urgent = urgent;
-        }
-
-        public long getId() {
-            return id;
-        }
-
-        public String getText() {
-            return text;
-        }
-
-        public boolean isUrgent() {
-            return urgent;
-        }
-    }
-
-    private class TodoAdapter extends BaseAdapter {
-
-        @Override
-        public int getCount() {
-            return todoItems.size();
-        }
-
-        @Override
-        public Object getItem(int position) {
-            return todoItems.get(position);
-        }
-
-        @Override
-        public long getItemId(int position) {
-            return todoItems.get(position).getId();
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            View view = getLayoutInflater().inflate(R.layout.todo_row, parent, false);
-
-            TextView todoTextView = view.findViewById(R.id.todoTextView);
-            TodoItem item = todoItems.get(position);
-
-            todoTextView.setText(item.getText());
-
-            if (item.isUrgent()) {
-                view.setBackgroundColor(Color.RED);
-                todoTextView.setTextColor(Color.WHITE);
-            } else {
-                view.setBackgroundColor(Color.WHITE);
-                todoTextView.setTextColor(Color.BLACK);
             }
+        }
 
-            return view;
+        @Override
+        protected void onProgressUpdate(Integer... values) {
+            int progress = values[0];
+            progressBar.setProgress(progress);
+
+            // Only swap the image when progress resets to 0 (new image ready)
+            if (progress == 0 && currentCat != null) {
+                catImageView.setImageBitmap(currentCat);
+            }
         }
     }
 }
